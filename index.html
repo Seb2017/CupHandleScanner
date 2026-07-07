@@ -129,6 +129,25 @@
     transform: rotate(35deg);
     letter-spacing: 0.06em;
   }
+  /* vue d'ensemble : code couleur par statut */
+  .grid.overview { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+  .card.status-cup_breakout, .card.status-accum_breakout { border-color: #4f9d69; }
+  .card.status-cup_forming, .card.status-accum_forming { border-color: #c9a24b; }
+  .card.status-none { border-color: var(--line); opacity: 0.75; }
+  .card.status-error { border-color: var(--down); opacity: 0.6; }
+  .badge {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 3px;
+    letter-spacing: 0.03em;
+  }
+  .badge.status-cup_breakout, .badge.status-accum_breakout { background: #4f9d69; color: #08130c; }
+  .badge.status-cup_forming, .badge.status-accum_forming { background: #c9a24b; color: #12130c; }
+  .badge.status-none { background: #2a2c20; color: var(--ink-dim); }
+  .badge.status-error { background: #b5544a; color: #fff; }
   .ticker-row {
     display: flex;
     justify-content: space-between;
@@ -176,7 +195,7 @@
 <body>
 
 <header>
-  <h1>Cup <span>&</span> Handle Scanner</h1>
+  <h1>Cup <span>&</span> Handle <span>+</span> Accumulation Scanner</h1>
   <div class="meta" id="lastUpdate">—</div>
 </header>
 
@@ -187,6 +206,9 @@
 
 <main>
   <div class="status-line" id="statusLine">En attente de l'URL du endpoint GAS…</div>
+
+  <div class="section-title">📊 Vue d'ensemble — tous les tickers <span class="count" id="overviewCount"></span></div>
+  <div class="grid overview" id="overviewGrid"></div>
 
   <div class="section-title">🫖 Tasse et anse <span class="count" id="cupCount"></span></div>
   <div class="grid" id="cupGrid"></div>
@@ -201,7 +223,7 @@
 
 <script>
   const STORAGE_KEY = 'cup_handle_endpoint';
-  const DEFAULT_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwIyBmzkYMqG1Cm8sjklBdhKz23O7R4-cVhrHDlP3qe8B_gEIDtycwRJzyYxuxmvlQ/exec';
+  const DEFAULT_ENDPOINT = 'https://script.google.com/macros/s/AKfycbxYxr2nI-21Xt63Or8xsqKMqYGlZkt4cPR08ZhJuwNUinNCqCym9972yP_C_IQcUj-G/exec';
 
   window.addEventListener('DOMContentLoaded', () => {
     const saved = localStorageGet(STORAGE_KEY) || DEFAULT_ENDPOINT;
@@ -217,12 +239,14 @@
   async function loadData() {
     const url = document.getElementById('endpointUrl').value.trim();
     const statusLine = document.getElementById('statusLine');
+    const overviewGrid = document.getElementById('overviewGrid');
     const cupGrid = document.getElementById('cupGrid');
     const accumGrid = document.getElementById('accumGrid');
     if (!url) { statusLine.textContent = 'Entrez une URL de endpoint.'; return; }
 
     localStorageSet(STORAGE_KEY, url);
-    statusLine.textContent = 'Chargement…';
+    statusLine.textContent = 'Chargement… (le scan de tous les tickers peut prendre 15-25s)';
+    overviewGrid.innerHTML = '';
     cupGrid.innerHTML = '';
     accumGrid.innerHTML = '';
 
@@ -234,13 +258,24 @@
 
       const cupResults = data.cupResults || [];
       const accumResults = data.accumResults || [];
+      const allResults = data.allResults || [];
 
+      const nActive = allResults.filter(r => r.status === 'cup_breakout' || r.status === 'accum_breakout').length;
+      const nForming = allResults.filter(r => r.status === 'cup_forming' || r.status === 'accum_forming').length;
+      document.getElementById('overviewCount').textContent =
+        `(${allResults.length} tickers scannés — ${nActive} actif(s), ${nForming} en formation)`;
       document.getElementById('cupCount').textContent =
         `(${cupResults.length}, dont ${cupResults.filter(r => r.isBreakingOut).length} breakout)`;
       document.getElementById('accumCount').textContent =
         `(${accumResults.length}, dont ${accumResults.filter(r => r.isBreakingOut).length} extraction)`;
 
-      statusLine.textContent = `${cupResults.length + accumResults.length} formation(s) au total.`;
+      statusLine.textContent = `${allResults.length} ticker(s) scanné(s), ${cupResults.length + accumResults.length} formation(s) au total.`;
+
+      if (allResults.length === 0) {
+        overviewGrid.innerHTML = '<div class="empty">Aucune donnée reçue du scanner.</div>';
+      } else {
+        allResults.forEach(r => overviewGrid.appendChild(renderOverviewCard(r)));
+      }
 
       if (cupResults.length === 0) {
         cupGrid.innerHTML = '<div class="empty">Aucune formation tasse et anse détectée actuellement.</div>';
@@ -256,6 +291,33 @@
     } catch (err) {
       statusLine.textContent = 'Erreur de chargement : ' + err.message;
     }
+  }
+
+  function renderOverviewCard(r) {
+    const card = document.createElement('div');
+    card.className = 'card status-' + r.status;
+
+    const badgeLabel = r.statusLabel || r.status;
+
+    if (r.status === 'error') {
+      card.innerHTML = `
+        <div class="ticker-row">
+          <div class="ticker">${r.ticker}</div>
+          <span class="badge status-error">${badgeLabel}</span>
+        </div>
+        <div class="data-rows"><div>Pas de données disponibles pour ce ticker.</div></div>
+      `;
+      return card;
+    }
+
+    card.innerHTML = `
+      <div class="ticker-row">
+        <div class="ticker">${r.ticker}</div>
+        <span class="badge status-${r.status}">${badgeLabel}</span>
+      </div>
+      ${r.chartUrl ? `<img src="${r.chartUrl}" style="width:100%;border-radius:4px;margin:8px 0;" alt="${r.ticker} chart">` : ''}
+    `;
+    return card;
   }
 
   function renderCupCard(r) {
