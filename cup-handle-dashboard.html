@@ -201,13 +201,12 @@
 
 <script>
   const STORAGE_KEY = 'cup_handle_endpoint';
+  const DEFAULT_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwIyBmzkYMqG1Cm8sjklBdhKz23O7R4-cVhrHDlP3qe8B_gEIDtycwRJzyYxuxmvlQ/exec';
 
   window.addEventListener('DOMContentLoaded', () => {
-    const saved = localStorageGet(STORAGE_KEY);
-    if (saved) {
-      document.getElementById('endpointUrl').value = saved;
-      loadData();
-    }
+    const saved = localStorageGet(STORAGE_KEY) || DEFAULT_ENDPOINT;
+    document.getElementById('endpointUrl').value = saved;
+    loadData();
   });
 
   // Pas de localStorage réel dans les artifacts — repli mémoire simple
