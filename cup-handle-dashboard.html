@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cup & Handle Scanner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Spectral:wght@400;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0e0c;
+    --panel: #16180f;
+    --line: #2a2c20;
+    --ink: #eef0e4;
+    --ink-dim: #8b8f7c;
+    --accent: #c9a24b;   /* or/laiton — évoque la tasse en céramique/métal */
+    --up: #4f9d69;
+    --down: #b5544a;
+    --mono: 'IBM Plex Mono', monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  header {
+    padding: 28px 24px 20px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  h1 {
+    font-family: 'Spectral', serif;
+    font-weight: 700;
+    font-size: 26px;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  h1 span { color: var(--accent); }
+  .meta {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink-dim);
+  }
+  .section-title {
+    font-family: 'Spectral', serif;
+    font-weight: 600;
+    font-size: 18px;
+    margin: 26px 0 12px;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .section-title .count {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink-dim);
+    font-weight: 400;
+  }
+  .config-bar {
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .config-bar input {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 8px 10px;
+    border-radius: 4px;
+    width: 340px;
+    max-width: 60vw;
+  }
+  .config-bar button {
+    background: var(--accent);
+    color: #12130c;
+    border: none;
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: 12px;
+    padding: 9px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .config-bar button:hover { opacity: 0.85; }
+  main { padding: 20px 24px 60px; }
+  .status-line {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink-dim);
+    margin-bottom: 18px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 14px;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 16px 18px;
+    position: relative;
+    overflow: hidden;
+  }
+  .card.breakout { border-color: var(--accent); }
+  .card.breakout::before {
+    content: "BREAKOUT";
+    position: absolute;
+    top: 10px;
+    right: -30px;
+    background: var(--accent);
+    color: #12130c;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 34px;
+    transform: rotate(35deg);
+    letter-spacing: 0.06em;
+  }
+  .ticker-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 6px;
+  }
+  .ticker {
+    font-family: 'Spectral', serif;
+    font-weight: 700;
+    font-size: 20px;
+  }
+  .status {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-dim);
+  }
+  .status.active { color: var(--up); }
+  svg.pattern { width: 100%; height: 70px; margin: 10px 0 8px; display: block; }
+  .data-rows {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--ink-dim);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 12px;
+    margin-top: 8px;
+  }
+  .data-rows b { color: var(--ink); font-weight: 500; }
+  .empty {
+    font-family: var(--mono);
+    color: var(--ink-dim);
+    font-size: 13px;
+    padding: 40px 0;
+    text-align: center;
+  }
+  footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--line);
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-dim);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Cup <span>&</span> Handle Scanner</h1>
+  <div class="meta" id="lastUpdate">—</div>
+</header>
+
+<div class="config-bar">
+  <input id="endpointUrl" type="text" placeholder="Coller l'URL du Web App Google Apps Script ici (déployée depuis CupHandleScanner.gs)">
+  <button onclick="loadData()">Charger</button>
+</div>
+
+<main>
+  <div class="status-line" id="statusLine">En attente de l'URL du endpoint GAS…</div>
+
+  <div class="section-title">🫖 Tasse et anse <span class="count" id="cupCount"></span></div>
+  <div class="grid" id="cupGrid"></div>
+
+  <div class="section-title">📦 Zone d'accumulation / extraction <span class="count" id="accumCount"></span></div>
+  <div class="grid" id="accumGrid"></div>
+</main>
+
+<footer>
+  Pattern : tasse et anse (cup and handle). Formation détectée algorithmiquement, ne constitue pas un conseil en investissement.
+</footer>
+
+<script>
+  const STORAGE_KEY = 'cup_handle_endpoint';
+
+  window.addEventListener('DOMContentLoaded', () => {
+    const saved = localStorageGet(STORAGE_KEY);
+    if (saved) {
+      document.getElementById('endpointUrl').value = saved;
+      loadData();
+    }
+  });
+
+  // Pas de localStorage réel dans les artifacts — repli mémoire simple
+  let memStore = {};
+  function localStorageGet(k) { return memStore[k] || ''; }
+  function localStorageSet(k, v) { memStore[k] = v; }
+
+  async function loadData() {
+    const url = document.getElementById('endpointUrl').value.trim();
+    const statusLine = document.getElementById('statusLine');
+    const cupGrid = document.getElementById('cupGrid');
+    const accumGrid = document.getElementById('accumGrid');
+    if (!url) { statusLine.textContent = 'Entrez une URL de endpoint.'; return; }
+
+    localStorageSet(STORAGE_KEY, url);
+    statusLine.textContent = 'Chargement…';
+    cupGrid.innerHTML = '';
+    accumGrid.innerHTML = '';
+
+    try {
+      const resp = await fetch(url);
+      const data = await resp.json();
+      document.getElementById('lastUpdate').textContent =
+        'MAJ : ' + new Date(data.generatedAt).toLocaleString('fr-FR');
+
+      const cupResults = data.cupResults || [];
+      const accumResults = data.accumResults || [];
+
+      document.getElementById('cupCount').textContent =
+        `(${cupResults.length}, dont ${cupResults.filter(r => r.isBreakingOut).length} breakout)`;
+      document.getElementById('accumCount').textContent =
+        `(${accumResults.length}, dont ${accumResults.filter(r => r.isBreakingOut).length} extraction)`;
+
+      statusLine.textContent = `${cupResults.length + accumResults.length} formation(s) au total.`;
+
+      if (cupResults.length === 0) {
+        cupGrid.innerHTML = '<div class="empty">Aucune formation tasse et anse détectée actuellement.</div>';
+      } else {
+        cupResults.forEach(r => cupGrid.appendChild(renderCupCard(r)));
+      }
+
+      if (accumResults.length === 0) {
+        accumGrid.innerHTML = '<div class="empty">Aucune zone d\'accumulation détectée actuellement.</div>';
+      } else {
+        accumResults.forEach(r => accumGrid.appendChild(renderAccumCard(r)));
+      }
+    } catch (err) {
+      statusLine.textContent = 'Erreur de chargement : ' + err.message;
+    }
+  }
+
+  function renderCupCard(r) {
+    const card = document.createElement('div');
+    card.className = 'card' + (r.isBreakingOut ? ' breakout' : '');
+
+    card.innerHTML = `
+      <div class="ticker-row">
+        <div class="ticker">${r.ticker}</div>
+        <div class="status ${r.isBreakingOut ? 'active' : ''}">${r.isBreakingOut ? '● BREAKOUT ACTIF' : 'formation en cours'}</div>
+      </div>
+      ${r.chartUrl ? `<img src="${r.chartUrl}" style="width:100%;border-radius:4px;margin:8px 0;" alt="${r.ticker} chart">` : cupSvg(r)}
+      <div class="data-rows">
+        <div>Rim : <b>${r.rimPrice}</b></div>
+        <div>Dernier close : <b>${r.lastClose}</b></div>
+        <div>Profondeur tasse : <b>${r.cupDepthPct}%</b></div>
+        <div>Profondeur anse : <b>${r.handleDepthPct}%</b></div>
+        <div>Niveau breakout : <b>${r.breakoutLevel}</b></div>
+        <div>Rim droit : <b>${new Date(r.rightRimDate).toLocaleDateString('fr-FR')}</b></div>
+        <div>Qualité forme (R²) : <b>${r.shapeR2}</b></div>
+      </div>
+    `;
+    return card;
+  }
+
+  function renderAccumCard(r) {
+    const card = document.createElement('div');
+    card.className = 'card' + (r.isBreakingOut ? ' breakout' : '');
+
+    card.innerHTML = `
+      <div class="ticker-row">
+        <div class="ticker">${r.ticker}</div>
+        <div class="status ${r.isBreakingOut ? 'active' : ''}">${r.isBreakingOut ? '● EXTRACTION ACTIVE' : 'zone en cours'}</div>
+      </div>
+      ${r.chartUrl ? `<img src="${r.chartUrl}" style="width:100%;border-radius:4px;margin:8px 0;" alt="${r.ticker} chart">` : ''}
+      <div class="data-rows">
+        <div>Bas de zone : <b>${r.rangeLow}</b></div>
+        <div>Haut de zone : <b>${r.rangeHigh}</b></div>
+        <div>Durée zone : <b>${r.rangeBars}j</b></div>
+        <div>Amplitude : <b>${r.rangePct}%</b></div>
+        <div>Niveau extraction : <b>${r.breakoutLevel}</b></div>
+        <div>Dernier close : <b>${r.lastClose}</b></div>
+        <div>Fin de zone : <b>${new Date(r.rangeEndDate).toLocaleDateString('fr-FR')}</b></div>
+      </div>
+    `;
+    return card;
+  }
+
+  function cupSvg(r) {
+    // Silhouette schématique de la tasse + anse (pas une reconstruction de prix exacte)
+    const w = 280, h = 70;
+    const rimY = 18;
+    const bottomY = 55;
+    const color = r.isBreakingOut ? '#c9a24b' : '#6b6f58';
+    return `
+      <svg class="pattern" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+        <path d="M 10 ${rimY}
+                 C 60 ${bottomY}, 130 ${bottomY}, 180 ${rimY}
+                 L 195 ${rimY + 10}
+                 L 215 ${rimY + 4}
+                 L 235 ${rimY - 6}"
+              fill="none" stroke="${color}" stroke-width="2.4" stroke-linecap="round"/>
+        <line x1="10" y1="${rimY}" x2="235" y2="${rimY}" stroke="#3a3d2e" stroke-width="1" stroke-dasharray="3,3"/>
+      </svg>
+    `;
+  }
+</script>
+
+</body>
+</html>
